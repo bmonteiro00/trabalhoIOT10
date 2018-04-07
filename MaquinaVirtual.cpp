@@ -100,13 +100,6 @@ using namespace std;
 #define BLOCK_SIZE 4
 #define DEBUG 1
 
-/* Block
- *
- * Holds an integer that states the validity of the bit (0 = invalid,
- * 1 = valid), the tag being held, and another integer that states if
- * the bit is dirty or not (0 = clean, 1 = dirty).
- */
-
 struct Block_ {
     int valid;
     char* tag;
@@ -115,21 +108,6 @@ struct Block_ {
 };
 
 typedef struct Block_* Block;
-
-
-/* Cache
- *
- * Cache object that holds all the data about cache access as well as 
- * the write policy, sizes, and an array of blocks.
- *
- * @param   hits            # of cache accesses that hit valid data
- * @param   misses          # of cache accesses that missed valid data
- * @param   reads           # of reads from main memory
- * @param   writes          # of writes from main memory
- * @param   cache_size      Total size of the cache in bytes
- * @param   block_size      How big each block of data should be
- * @param   numLines        Total number of blocks 
- */
 
 struct Cache_ {
     int hits;
@@ -338,7 +316,6 @@ void execute(Cache cache)
 	if(InstrType == 1)
 	{
         // Load
-		
 		unsigned int addrMemoryValue = getValueByCacheAddr(cache, RegAddrMemory); 
 		if( NULL != addrMemoryValue)
 		{
