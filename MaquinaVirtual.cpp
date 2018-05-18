@@ -61,7 +61,7 @@ Detalhes do set de instrução
      	 
      	       MSB                     
      	 
-     	 (Tipo instr.) (End Reg)
+     	 (Tipo instr.) (End Reg) 
 
 		    4 bits       4 bits 
 		    
@@ -79,7 +79,7 @@ Detalhes do set de instrução
 
 		    4 bits        12 bits
 		    
-   	   - Exemplo: 0b1000000000000001 >>> |1000|0000|00000001
+   	   - Exemplo: 0b1000000000000001 >>> |1000|000000000001
          
          	 Realiza o PRINT da memoria.
  	 	 	 
@@ -100,14 +100,34 @@ using namespace std;
 #define BLOCK_SIZE 4
 #define DEBUG 1
 
+/* Block
+ *
+ * Estrutura para guardar informacoes sobre o bloco.
+ *
+ */
+
 struct Block_ {
     int valid;
     char* tag;
     int dirty;
     int data;
 };
-
 typedef struct Block_* Block;
+
+
+/* Cache
+ *
+ * Estrutura da memoria cache. Neste exemplo estao apenas implementados
+ * os valor de memory hit e memory miss.
+ *
+ * @param   hits            # numero de memory hit
+ * @param   misses          # numero de memory miss
+ * @param   reads           # numero de leituras da memoria principal
+ * @param   writes          # numero de escritas na memoria principal
+ * @param   cache_size      # tamanho total da memoria cache
+ * @param   block_size      # quantos bytes por blocos
+ * @param   numLines        # numero total de blocos
+ */
 
 struct Cache_ {
     int hits;
@@ -120,22 +140,21 @@ struct Cache_ {
 	Block* blocks;  
 	   
 };
-
 typedef struct Cache_* Cache;
 
 // Memoria de programa            
-unsigned int ProgMemory[] = {	0b0001000000000000, // load
-								0b0001000100000001, // load
-								0b0111000000010010, // add
-								0b0011001000000010, // store
-								0b1000000000000000, // print registradores
-								0b1000000100000000, // print registradores
-								0b1100000000000010, // print conteudo na memoria (DataMemory)
-								0b0001000000000011, // quando executar a instrução dara cache miss e colocara na memoria cache
-								0b0001000000000011}; // quando executar nao dara mais cache miss 
+unsigned int ProgMemory[] = {	0b0001000000000000,  // load
+								0b0001000100000001,  // load
+								0b0111000000010010,  // add
+								0b0011001000000010,  // store
+								0b1000000000000000,  // print registradores
+								0b1000000100000000,  // print registradores
+								0b1000001000000000,  // print registradores
+								0b1100000000000010,  // print conteudo na memoria (DataMemory)
+								0b0001000000000011,  // ao executar a instrução dará cache miss e colocara na memoria cache
+								0b0001000000000011}; // ao executar não dara mais cache miss 
 // Memoria de dados
 unsigned int DataMemory[] = { 1, 3, 0, 0, 0, 0, 0, 0};
-
 									
 // Registradores
 unsigned int PC;
@@ -166,7 +185,7 @@ int main()
 	
 	cache = createCache(CACHE_SIZE, BLOCK_SIZE);
 	
-	while(PC < 9)
+	while(PC < 10)
 	{
 		Instr = ProgMemory[PC]; // busca da instrução
 		PC = PC + 1;
@@ -192,27 +211,25 @@ Cache createCache(int cache_size, int block_size)
     
     if(cache_size <= 0)
     {
-        printf("Cache size must be greater than 0 bytes...\n");
+        printf("O tamanho da memoria cache deve ser maior que 0 bytes...\n");
         return NULL;
     }
     
     if(block_size <= 0)
     {
-        printf("Block size must be greater than 0 bytes...\n");
+        printf("O tamanho do bloco deve ser maior que 0 bytes...\n");
         return NULL;
     }
     
     cache = (Cache) malloc( sizeof( struct Cache_ ) );
     if(cache == NULL)
     {
-        printf("Could not allocate memory for cache.\n");
+        printf("Não pode alocar a memoria cache.\n");
         return NULL;
     }
     
     cache->hits = 0;
     cache->misses = 0;
-    cache->reads = 0;
-    cache->writes = 0;
     
     cache->cache_size = CACHE_SIZE;
     cache->block_size = BLOCK_SIZE;
@@ -226,18 +243,17 @@ Cache createCache(int cache_size, int block_size)
     for(i = 0; i < cache->numLines; i++)
     {
     	//preenche a memoria cache com o valor da memoria de programa
+    	// neste caso a memoria de dados tem apenas duas posições com dados.
     	if( i == 0 || i == 1)
 		{
 			cache->blocks[i] = (Block) malloc( sizeof( struct Block_ ) );
             cache->blocks[i]->valid = 1;
-            cache->blocks[i]->dirty = 0;
             cache->blocks[i]->data = DataMemory[i];
 		}
 		else
 		{
 			cache->blocks[i] = (Block) malloc( sizeof( struct Block_ ) );
             cache->blocks[i]->valid = 0;
-            cache->blocks[i]->dirty = 0;
             cache->blocks[i]->tag = NULL;
 		}
    }
@@ -294,7 +310,7 @@ unsigned int getValueByCacheAddr(Cache cache, unsigned int MemAddr)
 		
 		if(DEBUG)
 		{
-           printf("Value of cache memory: %i \n",cache->blocks[MemAddr]->data);
+           printf("Valor da memoria cache: %i \n",cache->blocks[MemAddr]->data);
 		}
 
 		return cache->blocks[MemAddr]->data;
@@ -304,7 +320,6 @@ unsigned int getValueByCacheAddr(Cache cache, unsigned int MemAddr)
 		cache->misses++;
 		
 		cache->blocks[MemAddr]->valid = 1;
-		cache->blocks[MemAddr]->dirty = 0;
         cache->blocks[MemAddr]->data = DataMemory[MemAddr];
 
 		return NULL;
@@ -321,7 +336,7 @@ void execute(Cache cache)
 		{
 			if(DEBUG)
 			{
-				printf("Using value from cache memory \n");
+				printf("Usando valor da memoria cache. \n");
 			}
 
 			Reg[RegDest] = addrMemoryValue;
@@ -330,7 +345,7 @@ void execute(Cache cache)
 		{
 			if(DEBUG)
 			{
-				printf("Using value from data memory \n");
+				printf("Usando valor da memoria de dados. \n");
 			}
 
 			Reg[RegDest] = DataMemory[RegAddrMemory];
